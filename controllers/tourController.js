@@ -1,53 +1,22 @@
 const Tour = require('../models/tourModel');
+const APIFeatures = require('../utils/apiFeatures');
+
+exports.aliasTopTours = (req, res, next) => {
+  req.query.limit = '5';
+  req.query.sort = '-ratingsAverage,price';
+  req.query.fields = 'name,price,ratingsAverage,summary,difficulty';
+  next();
+};
 
 exports.getAllTours = async (req, res) => {
   try {
-    // BUILD QUERY
-    // 1a) Filtering
-    const queryObj = { ...req.query };
-    // req.query needs to be destructured so it doesn't get destroyed by following code
-
-    const excludedFields = ['page', 'sort', 'limit', 'fields'];
-    excludedFields.forEach((el) => delete queryObj[el]);
-
-    // 1b) Advanced Filtering
-    let queryStr = JSON.stringify(queryObj);
-
-    // 1 replace() args:
-    // 2 '\b' only matches exact string
-    // 3 'g' replaces globally instead of only one ocurrence
-    queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
-
-    // { difficult: 'easy', duration: { $gte: 5} }
-    // { difficult: 'easy', duration: { gte: '5'} }
-    // gte, gt, lte, lt
-
-    let query = Tour.find(JSON.parse(queryStr));
-
-    // 2) Sorting
-
-    // if there's no sort query, sort by "-createdAt'
-    if (req.query.sort) {
-      // 1 change sort query into a mongodb
-      // 2 query by changing query comma into whitespace
-      // 3 desired mongodb query: sort('-price -ratingsAverage')
-      const sortBy = req.query.sort.split(',').join(' ');
-      query = query.sort(sortBy);
-    } else {
-      query.sort('-createdAt');
-    }
-
-    // 3) Field limiting
-
-    if (req.query.fields) {
-      const fields = req.query.fields.split(',').join(' ');
-      query = query.select(fields);
-    } else {
-      query = query.select('-__v');
-    }
-
     // EXECUTE QUERY
-    const tours = await query;
+    const features = new APIFeatures(Tour.find(), req.query)
+      .filter()
+      .sort()
+      .limitFields()
+      .paginate();
+    const tours = await features.query;
 
     // const query = await Tour.find()
     //   .where('duration')
