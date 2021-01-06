@@ -1,7 +1,6 @@
 # natours
 
-
-#### REST API for creating, reading, updating and deleting Tour models from a template website<br>
+#### REST API for creating, reading, updating and deleting Tour models from a template website
 
 - MongoDB
 - Express
