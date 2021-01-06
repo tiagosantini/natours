@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-// exports the constructor for the Tour mongodb schema
+// exports the constructor for the Tour mongodb model
 
 const tourSchema = new mongoose.Schema({
   name: {
