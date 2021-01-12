@@ -6,8 +6,8 @@ const handleCastErrorDB = (err) => {
 };
 
 const handleDuplicateFieldsDB = (err) => {
+  // RegEx approach is valid but too unreadable and unnecessarily complex
   // const value = err.errmsg.match(/(["'])(?:(?=(\\?))\2.)*?\1/)[0];
-  // console.log(value);
   const message = `Duplicate field value: ${err.keyValue.name}. Please use another value!`;
   return new AppError(message, 400);
 };
