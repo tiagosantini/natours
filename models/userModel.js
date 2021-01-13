@@ -23,6 +23,13 @@ const userSchema = new mongoose.Schema({
   passwordConfirm: {
     type: String,
     required: [true, 'Please confirm your password'],
+    validate: {
+      // Validators only work on CREATE or SAVE!
+      validator: function (el) {
+        return el === this.password;
+      },
+      message: 'Validation error! The passwords must match!',
+    },
   },
 });
 
