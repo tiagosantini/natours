@@ -1,5 +1,5 @@
-module.exports = (fn) => {
+module.exports = function (asyncFunction) {
   return (req, res, next) => {
-    fn(req, res, next).catch(next);
+    asyncFunction(req, res, next).catch(next);
   };
 };
