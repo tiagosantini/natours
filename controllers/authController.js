@@ -19,6 +19,7 @@ exports.signup = catchAsync(async (req, res, next) => {
     password: req.body.password,
     passwordConfirm: req.body.passwordConfirm,
     passwordChangedAt: req.body.passwordChangedAt,
+    role: req.body.role,
   });
 
   const token = signToken(newUser._id);
@@ -58,6 +59,12 @@ exports.login = catchAsync(async (req, res, next) => {
 
 // Route protection
 exports.protect = catchAsync(async (req, res, next) => {
+  /* 
+    --> IMPORTANT!
+    --> this middleware function MUST to be used to restrict access from the database for data sensitive
+    --> operations such as DELETE, PATCH and PUT.
+  */
+
   // 1) Get token and check if it's there
   let token;
   if (
@@ -94,3 +101,24 @@ exports.protect = catchAsync(async (req, res, next) => {
   req.user = currentUser;
   next();
 });
+
+// Role restriction
+exports.restrictTo = function (...roles) {
+  /* 
+    --> IMPORTANT!
+    --> this middleware function MUST to be used to restrict access from the database for data sensitive
+    --> operations such as DELETE, PATCH and PUT.
+  */
+
+  // restrictTo takes one or more role as argument and checks if that role matches that of logged user
+  // usage: authController.restrictTo('admin', 'user')
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return next(
+        new AppError('You do not have permission to perform this action!', 403)
+      );
+    }
+
+    next();
+  };
+};
