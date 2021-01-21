@@ -47,6 +47,17 @@ const userSchema = new mongoose.Schema({
     default: true,
     select: false,
   },
+  loginAttempts: {
+    type: Number,
+    default: 0,
+    select: false,
+  },
+  locked: {
+    type: Boolean,
+    default: false,
+    select: false,
+  },
+  accountUnlockToken: String,
 });
 
 userSchema.pre('save', async function (next) {
@@ -105,6 +116,17 @@ userSchema.methods.createPasswordResetToken = function () {
   this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
 
   return resetToken;
+};
+
+userSchema.methods.createAccountUnlockToken = function () {
+  const unlockToken = crypto.randomBytes(32).toString('hex');
+
+  this.accountUnlockToken = crypto
+    .createHash('sha256')
+    .update(unlockToken)
+    .digest('hex');
+
+  return unlockToken;
 };
 
 const User = mongoose.model('User', userSchema);
