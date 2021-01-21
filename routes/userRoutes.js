@@ -10,6 +10,7 @@ router.post('/login', authController.checkUserLocked, authController.login);
 router.post('/forgotPassword', authController.forgotPassword);
 router.patch('/resetPassword/:token', authController.resetPassword);
 router.patch('/unlockAccount/:token', authController.unlockAccount);
+router.patch('/confirmEmail/:token', authController.confirmEmail);
 
 router.patch(
   '/updateMyPassword',

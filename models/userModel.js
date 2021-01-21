@@ -16,6 +16,12 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     validate: [validator.isEmail, 'Please enter a valid email.'],
   },
+  confirmedEmail: {
+    type: Boolean,
+    default: false,
+    select: false,
+  },
+  emailConfirmToken: String,
   photo: String,
   role: {
     type: String,
@@ -127,6 +133,17 @@ userSchema.methods.createAccountUnlockToken = function () {
     .digest('hex');
 
   return unlockToken;
+};
+
+userSchema.methods.createEmailConfirmationToken = function () {
+  const confirmationToken = crypto.randomBytes(32).toString('hex');
+
+  this.emailConfirmToken = crypto
+    .createHash('sha256')
+    .update(confirmationToken)
+    .digest('hex');
+
+  return confirmationToken;
 };
 
 const User = mongoose.model('User', userSchema);

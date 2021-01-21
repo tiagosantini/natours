@@ -39,6 +39,40 @@ const createSendToken = (user, statusCode, res) => {
   });
 };
 
+// Send email confirmation token
+// TODO: Refactor function automating token delivery
+const sendEmailToken = catchAsync(async (newUser, req, res, next) => {
+  const confirmationToken = await newUser.createEmailConfirmationToken();
+  await newUser.save({ validateBeforeSave: false });
+
+  const unlockURL = `${req.protocol}://${req.get(
+    'host'
+  )}/api/v1/users/confirmEmail/${confirmationToken}`;
+
+  const message = `Hello, ${newUser.name}! Welcome to Natours!\nClick here to confirm your email:\n${unlockURL} `;
+  try {
+    await sendEmail({
+      email: newUser.email,
+      subject: 'Your Natours confirmation code:',
+      message: message,
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Account created! We sent you an email to confirm your account.',
+    });
+  } catch (err) {
+    await newUser.save({ validateBeforeSave: false });
+
+    return next(
+      new AppError(
+        'There was an error sending the email. Try again later!',
+        500
+      )
+    );
+  }
+});
+
 // Signup process
 exports.signup = catchAsync(async (req, res, next) => {
   const newUser = await User.create({
@@ -50,7 +84,32 @@ exports.signup = catchAsync(async (req, res, next) => {
     role: req.body.role,
   });
 
-  createSendToken(newUser, 201, res);
+  sendEmailToken(newUser, req, res);
+
+  // createSendToken(newUser, 201, res);
+});
+
+// Email confirmation function
+exports.confirmEmail = catchAsync(async (req, res, next) => {
+  // 1) Get user based on the token
+  const hashedToken = crypto
+    .createHash('sha256')
+    .update(req.params.token)
+    .digest('hex');
+
+  const user = await User.findOne({
+    emailConfirmToken: hashedToken,
+  });
+
+  if (!user) {
+    return next(new AppError('Invalid token! User does not exist.', 401));
+  }
+
+  user.confirmedEmail = true;
+  user.emailConfirmToken = undefined;
+  await user.save({ validateBeforeSave: false });
+
+  createSendToken(user, 200, res);
 });
 
 // Login process
@@ -81,7 +140,14 @@ exports.login = catchAsync(async (req, res, next) => {
     return next(new AppError('Incorrect email or password!', 401));
   }
 
-  // 4) If everything is ok, send token to client
+  // 4) Check if user has confirmed their email
+  if (!user.confirmedEmail) {
+    return next(
+      new AppError('Email was not confirmed! Please check your inbox.', 423)
+    );
+  }
+
+  // 5) If everything is ok, send token to client
   user.loginAttempts = 0;
   createSendToken(user, 200, res);
 });
