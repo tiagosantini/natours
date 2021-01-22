@@ -6,13 +6,14 @@ const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const sendEmail = require('../utils/email');
 
+// signToken creates a new token from the user id and .env secret string
 const signToken = function (id) {
-  // Function creates a new token from the user id and .env secret string
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
   });
 };
 
+// Use signToken to create a token and send it to user
 const createSendToken = (user, statusCode, res) => {
   const token = signToken(user._id);
   const cookieOptions = {
@@ -86,7 +87,7 @@ exports.signup = catchAsync(async (req, res, next) => {
   sendEmailToken(newUser.email, 'Your email confirmation token:', message, res);
 });
 
-// Email confirmation function
+// Email confirmation process
 exports.confirmEmail = catchAsync(async (req, res, next) => {
   // 1) Get user based on the token
   const hashedToken = crypto
@@ -101,11 +102,12 @@ exports.confirmEmail = catchAsync(async (req, res, next) => {
   if (!user) {
     return next(new AppError('Invalid token! User does not exist.', 401));
   }
-
+  // 2) If user is found and token matches, confirm user email
   user.confirmedEmail = true;
   user.emailConfirmToken = undefined;
   await user.save({ validateBeforeSave: false });
 
+  // 3) Log user in, send JWT
   createSendToken(user, 200, res);
 });
 
@@ -118,7 +120,7 @@ exports.login = catchAsync(async (req, res, next) => {
     return next(new AppError('Please provide email and password!', 400));
   }
 
-  // 2) Check if user exists && password is correct
+  // 2) Check if user exists
   const user = await User.findOne({ email }).select('+password +loginAttempts');
 
   // 3) Lock account if 3 incorrect passwords are given
@@ -133,25 +135,29 @@ exports.login = catchAsync(async (req, res, next) => {
     return next(new AppError('Incorrect email or password!', 401));
   }
 
+  // 4) Check if email and account are correct
   if (!user || !(await user.correctPassword(password, user.password))) {
     return next(new AppError('Incorrect email or password!', 401));
   }
 
-  // 4) Check if user has confirmed their email
+  // 5) Check if user has confirmed their email
   if (!user.confirmedEmail) {
     return next(
       new AppError('Email was not confirmed! Please check your inbox.', 423)
     );
   }
 
-  // 5) If everything is ok, send token to client
+  // 6) Log user in, send JWT
+  // Reset loginAttempts
   user.loginAttempts = 0;
   createSendToken(user, 200, res);
 });
 
+// Check if user account is locked
 exports.checkUserLocked = catchAsync(async (req, res, next) => {
   const { email } = req.body;
 
+  // 1) Check if user exists
   const user = await User.findOne({ email }).select('+locked');
 
   if (!user) {
@@ -196,6 +202,32 @@ exports.checkUserLocked = catchAsync(async (req, res, next) => {
   }
 
   next();
+});
+
+// Unlock account function
+exports.unlockAccount = catchAsync(async (req, res, next) => {
+  // 1) Get user based on the token
+  const hashedToken = crypto
+    .createHash('sha256')
+    .update(req.params.token)
+    .digest('hex');
+
+  const user = await User.findOne({
+    accountUnlockToken: hashedToken,
+  });
+
+  if (!user) {
+    return next(new AppError('Invalid token! User does not exist.', 401));
+  }
+
+  // 2) If user is found and token matches, unlock account
+  user.loginAttempts = 0;
+  user.accountUnlockToken = undefined;
+  user.locked = false;
+  await user.save({ validateBeforeSave: false });
+
+  // 3) Log user in, send JWT
+  createSendToken(user, 200, res);
 });
 
 // Route protection
@@ -352,31 +384,4 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
 
   // 4) Log user in, send JWT
   createSendToken(user, 200, res);
-});
-
-// Unlock account function
-exports.unlockAccount = catchAsync(async (req, res, next) => {
-  // 1) Get user based on the token
-  const hashedToken = crypto
-    .createHash('sha256')
-    .update(req.params.token)
-    .digest('hex');
-
-  const user = await User.findOne({
-    accountUnlockToken: hashedToken,
-  });
-
-  if (!user) {
-    return next(new AppError('Invalid token! User does not exist.', 401));
-  }
-
-  user.loginAttempts = 0;
-  user.accountUnlockToken = undefined;
-  user.locked = false;
-  await user.save({ validateBeforeSave: false });
-
-  res.status(200).json({
-    status: 'success',
-    message: 'Account unlocked! Log in again.',
-  });
 });
