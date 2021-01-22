@@ -40,30 +40,19 @@ const createSendToken = (user, statusCode, res) => {
 };
 
 // Send email confirmation token
-// TODO: Refactor function automating token delivery
-const sendEmailToken = catchAsync(async (newUser, req, res, next) => {
-  const confirmationToken = await newUser.createEmailConfirmationToken();
-  await newUser.save({ validateBeforeSave: false });
-
-  const unlockURL = `${req.protocol}://${req.get(
-    'host'
-  )}/api/v1/users/confirmEmail/${confirmationToken}`;
-
-  const message = `Hello, ${newUser.name}! Welcome to Natours!\nClick here to confirm your email:\n${unlockURL} `;
+const sendEmailToken = async (email, subject, message, res, next) => {
   try {
     await sendEmail({
-      email: newUser.email,
-      subject: 'Your Natours confirmation code:',
+      email: email,
+      subject: subject,
       message: message,
     });
 
     res.status(200).json({
       status: 'success',
-      message: 'Account created! We sent you an email to confirm your account.',
+      message: 'Email sent with verification token. Check your inbox!',
     });
   } catch (err) {
-    await newUser.save({ validateBeforeSave: false });
-
     return next(
       new AppError(
         'There was an error sending the email. Try again later!',
@@ -71,7 +60,7 @@ const sendEmailToken = catchAsync(async (newUser, req, res, next) => {
       )
     );
   }
-});
+};
 
 // Signup process
 exports.signup = catchAsync(async (req, res, next) => {
@@ -84,9 +73,17 @@ exports.signup = catchAsync(async (req, res, next) => {
     role: req.body.role,
   });
 
-  sendEmailToken(newUser, req, res);
+  const confirmationToken = await newUser.createEmailConfirmationToken();
+  await newUser.save({ validateBeforeSave: false });
 
-  // createSendToken(newUser, 201, res);
+  const unlockURL = `${req.protocol}://${req.get(
+    'host'
+  )}/api/v1/users/confirmEmail/${confirmationToken}`;
+
+  const message = `Hello, ${newUser.name}! Welcome to Natours!\nClick here to confirm your email:\n${unlockURL}`;
+
+  // Send email confirmation token to user
+  sendEmailToken(newUser.email, 'Your email confirmation token:', message, res);
 });
 
 // Email confirmation function
