@@ -141,7 +141,7 @@ exports.login = catchAsync(async (req, res, next) => {
   }
 
   // 5) Check if user has confirmed their email
-  if (!user.confirmedEmail) {
+  if (user.confirmedEmail === false) {
     return next(
       new AppError('Email was not confirmed! Please check your inbox.', 423)
     );
